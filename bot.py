@@ -3,7 +3,7 @@ import asyncio
 from aiohttp import web
 
 from telegram import Update
-from telegram.ext import Application, ApplicationBuilder, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 
 # ------------------ СПАМ-СПИСОК ------------------
 
@@ -46,25 +46,28 @@ async def check_spam(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def start_bot():
-    TOKEN = os.environ.get("BOT_TOKEN")
-    if not TOKEN:
-        print("ERROR: BOT_TOKEN not set")
-        return
+    try:
+        TOKEN = os.environ.get("BOT_TOKEN")
+        print("BOT_TOKEN length:", len(TOKEN) if TOKEN else "None")
 
-    app = (
-        ApplicationBuilder()
-        .token(TOKEN)
-        .build()
-    )
-    app.add_handler(MessageHandler(filters.TEXT, check_spam))
+        if not TOKEN:
+            print("ERROR: BOT_TOKEN not set")
+            return
 
-    # Запуск бота без run_polling
-    await app.initialize()
-    await app.start()
-    print("Telegram bot started!")
+        app = ApplicationBuilder().token(TOKEN).build()
+        app.add_handler(MessageHandler(filters.TEXT, check_spam))
 
-    # Telegram API требует, чтобы бот не выключался
-    await asyncio.Event().wait()
+        print("Initializing Telegram bot...")
+        await app.initialize()
+        await app.start()
+        print("Telegram bot started and polling!")
+
+        # держим бота живым
+        await asyncio.Event().wait()
+
+    except Exception as e:
+        # ЛОВИМ ЛЮБУЮ ОШИБКУ И ПИШЕМ В ЛОГ
+        print("BOT ERROR:", repr(e))
 
 
 # ------------------ ВЕБ-СЕРВЕР ДЛЯ RENDER ------------------
@@ -79,7 +82,7 @@ async def start_web():
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 10000)))
     await site.start()
-    print("Web server started!")
+    print("Web server started on port", os.environ.get("PORT", 10000))
 
 
 # ------------------ ОБЩИЙ ЗАПУСК ------------------
@@ -87,7 +90,7 @@ async def start_web():
 async def main():
     await asyncio.gather(
         start_bot(),
-        start_web()
+        start_web(),
     )
 
 if __name__ == "__main__":
