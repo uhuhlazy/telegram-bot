@@ -3,7 +3,7 @@ import asyncio
 from aiohttp import web
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, ApplicationBuilder, MessageHandler, filters, ContextTypes
 
 # ------------------ СПАМ-СПИСОК ------------------
 
@@ -38,7 +38,6 @@ async def check_spam(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     if not msg or not msg.text:
         return
-
     text = msg.text.lower()
     for spam in SPAM_WORDS:
         if spam in text:
@@ -52,29 +51,38 @@ async def start_bot():
         print("ERROR: BOT_TOKEN not set")
         return
 
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = (
+        ApplicationBuilder()
+        .token(TOKEN)
+        .build()
+    )
     app.add_handler(MessageHandler(filters.TEXT, check_spam))
 
-    print("Bot is running on Render Web Service (0$)...")
+    # Запуск бота без run_polling
+    await app.initialize()
+    await app.start()
+    print("Telegram bot started!")
 
-    await app.run_polling()
+    # Telegram API требует, чтобы бот не выключался
+    await asyncio.Event().wait()
 
 
-# ------------------ МИНИ ВЕБ-СЕРВЕР ------------------
-
-async def handle(request):
-    return web.Response(text="OK")
+# ------------------ ВЕБ-СЕРВЕР ДЛЯ RENDER ------------------
 
 async def start_web():
+    async def handle(request):
+        return web.Response(text="OK")
+
     app = web.Application()
     app.router.add_get("/", handle)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 10000)))
     await site.start()
+    print("Web server started!")
 
 
-# ------------------ ЗАПУСК ДВУХ СЕРВИСОВ ------------------
+# ------------------ ОБЩИЙ ЗАПУСК ------------------
 
 async def main():
     await asyncio.gather(
