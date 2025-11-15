@@ -1,11 +1,8 @@
 import os
 import asyncio
-from aiohttp import web
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
-
-# ------------------ СПАМ-СПИСОК ------------------
 
 SPAM_WORDS = [
     "подарок","подарочки","подарок из профиля","подарочек из профиля",
@@ -32,8 +29,6 @@ SPAM_WORDS = [
 REPLY_TEXT = "Ваше сообщение было автоматически помечено как спам. Дальнейшая переписка по данному вопросу не ведется."
 
 
-# ------------------ БОТ ------------------
-
 async def check_spam(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     if not msg or not msg.text:
@@ -45,53 +40,20 @@ async def check_spam(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
 
-async def start_bot():
-    try:
-        TOKEN = os.environ.get("BOT_TOKEN")
-        print("BOT_TOKEN length:", len(TOKEN) if TOKEN else "None")
-
-        if not TOKEN:
-            print("ERROR: BOT_TOKEN not set")
-            return
-
-        app = ApplicationBuilder().token(TOKEN).build()
-        app.add_handler(MessageHandler(filters.TEXT, check_spam))
-
-        print("Initializing Telegram bot...")
-        await app.initialize()
-        await app.start()
-        print("Telegram bot started and polling!")
-
-        # держим бота живым
-        await asyncio.Event().wait()
-
-    except Exception as e:
-        # ЛОВИМ ЛЮБУЮ ОШИБКУ И ПИШЕМ В ЛОГ
-        print("BOT ERROR:", repr(e))
-
-
-# ------------------ ВЕБ-СЕРВЕР ДЛЯ RENDER ------------------
-
-async def start_web():
-    async def handle(request):
-        return web.Response(text="OK")
-
-    app = web.Application()
-    app.router.add_get("/", handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 10000)))
-    await site.start()
-    print("Web server started on port", os.environ.get("PORT", 10000))
-
-
-# ------------------ ОБЩИЙ ЗАПУСК ------------------
-
 async def main():
-    await asyncio.gather(
-        start_bot(),
-        start_web(),
-    )
+    token = os.environ.get("BOT_TOKEN")
+    print("BOT_TOKEN length:", len(token) if token else "None")
+
+    if not token:
+        print("ERROR: BOT_TOKEN not set")
+        return
+
+    app = ApplicationBuilder().token(token).build()
+    app.add_handler(MessageHandler(filters.TEXT, check_spam))
+
+    print("Telegram bot started, polling...")
+    await app.run_polling()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
