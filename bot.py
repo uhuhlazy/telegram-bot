@@ -2,7 +2,13 @@ import os
 import asyncio
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
 
 SPAM_WORDS = [
     "подарок","подарочки","подарок из профиля","подарочек из профиля",
@@ -33,26 +39,43 @@ async def check_spam(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.effective_message
     if not msg or not msg.text:
         return
+
     text = msg.text.lower()
-    for spam in SPAM_WORDS:
-        if spam in text:
+
+    for word in SPAM_WORDS:
+        if word in text:
             await msg.reply_text(REPLY_TEXT)
             return
 
 
 async def main():
     token = os.environ.get("BOT_TOKEN")
+
     print("BOT_TOKEN length:", len(token) if token else "None")
 
     if not token:
-        print("ERROR: BOT_TOKEN not set")
+        print("ERROR: BOT_TOKEN missing")
         return
 
-    app = ApplicationBuilder().token(token).build()
-    app.add_handler(MessageHandler(filters.TEXT, check_spam))
+    # Создаем приложение
+    application: Application = (
+        ApplicationBuilder()
+        .token(token)
+        .build()
+    )
 
-    print("Telegram bot started, polling...")
-    await app.run_polling()
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_spam))
+
+    print("Initializing bot...")
+    await application.initialize()
+
+    print("Starting bot...")
+    await application.start()
+
+    print("Bot is running. Polling is active!")
+
+    # Блокируем до конца (run_polling больше не используем!)
+    await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
